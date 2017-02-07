@@ -9,7 +9,7 @@ Copyright   :   Copyright 2012 Oculus, Inc. All Rights reserved.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
+ 
 http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
@@ -22,9 +22,11 @@ limitations under the License.
 /// This sample has not yet been fully assimiliated into the framework
 /// and also the GL support is not quite fully there yet, hence the VR
 /// is not that great!
+// #define MULTISAMPLE
 
 #include "../../OculusRoomTiny_Advanced/Common/Win32_GLAppUtil.h"
-
+#include <iostream>
+#include "SVIPviz.hpp"
 // Include the Oculus SDK
 #include "OVR_CAPI_GL.h"
 
@@ -35,6 +37,223 @@ limitations under the License.
 
 
 using namespace OVR;
+void debugCallback(SVIPviz::DebugLevel level, // function to catch SVIP problems
+    const char* message, unsigned int message_length,
+    void* user_data) {
+    if (level >= SVIPviz::DEBUGLEVEL_DEBUG) {
+        std::cout << message << std::endl;
+    }
+}
+
+// Functionality to copt from SVIP context to external
+namespace {
+    GLuint CreateShader(GLenum type, const GLchar* src)
+    {
+        GLuint shader = glCreateShader(type);
+
+        glShaderSource(shader, 1, &src, NULL);
+        glCompileShader(shader);
+
+        GLint r;
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &r);
+        if (!r)
+        {
+            GLchar msg[1024];
+            glGetShaderInfoLog(shader, sizeof(msg), 0, msg);
+            if (msg[0]) {
+                OVR_DEBUG_LOG(("Compiling shader failed: %s\n", msg));
+            }
+            return 0;
+        }
+
+        return shader;
+    }
+    GLuint CreateProgram(GLuint vertexShader, GLuint fragmentShader)
+    {
+        GLuint program = glCreateProgram();
+
+        glAttachShader(program, vertexShader);
+        glAttachShader(program, fragmentShader);
+
+        glLinkProgram(program);
+
+        glDetachShader(program, vertexShader);
+        glDetachShader(program, fragmentShader);
+
+        GLint r;
+        glGetProgramiv(program, GL_LINK_STATUS, &r);
+        if (!r)
+        {
+            GLchar msg[1024];
+            glGetProgramInfoLog(program, sizeof(msg), 0, msg);
+            OVR_DEBUG_LOG(("Linking shaders failed: %s\n", msg));
+        }
+        return program;
+    }
+}
+
+static const GLchar* vShaderString =
+"#version 150\n"
+"out     vec2 oTexCoord;\n"
+"out     vec4 oColor;\n"
+"void main()\n"
+"{\n"
+"  vec4 pos;\n"
+"  vec2 texC;"
+"  if (gl_VertexID == 0) {\n"
+"    pos = vec4(-1, -1, -0.5, 1.0);\n"
+"    texC=vec2(0.0, 0.0);\n"
+"  }\n"
+"  else if (gl_VertexID == 1) {\n"
+"    pos = vec4(1, -1, -0.5, 1.0);\n"
+"    texC=vec2(1.0, 0.0);\n"
+"  }\n"
+"  else if (gl_VertexID == 2) {\n"
+"    pos = vec4(-1, 1, -0.5, 1.0);\n"
+"    texC=vec2(0.0, 1.0);\n"
+"  }\n"
+"\n"
+"  else if (gl_VertexID == 3) {\n"
+"    pos = vec4(1, -1, -0.5, 1.0);\n"
+"    texC=vec2(1.0, 0.0);\n"
+"  }"
+"  else if (gl_VertexID == 4) {\n"
+"    pos = vec4(1, 1, -0.5, 1.0);\n"
+"    texC=vec2(1.0, 1.0);\n"
+"  }"
+"  else if (gl_VertexID == 5) {\n"
+"    pos = vec4(-1, 1, -0.5, 1.0);\n"
+"    texC=vec2(0.0, 1.0);\n"
+"  }"
+"  oTexCoord = texC;\n"
+"  gl_Position = pos;\n"
+"}\n";
+
+#ifdef MULTISAMPLE
+static const GLchar* fShaderString =
+"#version 430\n"
+"uniform  sampler2DMS    tex;\n"
+"in      vec4      oColor;\n"
+"in      vec2      oTexCoord;\n"
+"out     vec4      FragColor;\n"
+"void main()\n"
+"{\n"
+"   vec2 iTmp = textureSize(tex);\n"
+"   vec4 col;\n"
+"   col = texelFetch(tex, ivec2(iTmp*oTexCoord), gl_SampleID);\n"
+"   FragColor = col; \n"
+"   FragColor.a = 1.0; \n"
+//"   FragColor = vec4(oTexCoord, 0.0, 1.0);\n"
+"}\n";
+
+#else
+static const GLchar* fShaderString =
+"#version 150\n"
+"uniform sampler2D tex;\n"
+"in      vec4      oColor;\n"
+"in      vec2      oTexCoord;\n"
+"out     vec4      FragColor;\n"
+"void main()\n"
+"{\n"
+"   vec4 col;\n"
+"   col=texture(tex, oTexCoord);"
+"   FragColor = col; \n"
+"   FragColor.a = 1.0; \n"
+//"   FragColor = vec4(oTexCoord, 0.0, 1.0);\n"
+"}\n";
+#endif
+
+// END Functionality to copt from SVIP context to external
+void setupData(SVIPviz *svipViz) {
+    svipViz->setData("E:/playgroundCode/dev/libs/SVIPexport/161114b");
+    //    svipViz->setData("U:/prosjekt/9011-Math/HETEROCOMP/SVIP/161114b");
+}
+
+void renderSVIP(SVIPviz *svipViz, Matrix4f view, Matrix4f proj, int eye, bool saveMatrices, bool useStaticMatrices)
+{
+    static GLuint program = 0;
+    if (program == 0)
+    {
+        GLuint vp = CreateShader(GL_VERTEX_SHADER, vShaderString);
+        GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fShaderString);
+        program = CreateProgram(vp, fp);
+        glUseProgram(program);
+        glUniform1i(glGetUniformLocation(program, "tex"), 4);
+        glUseProgram(0);
+
+    }
+    static GLuint VAO = 0;
+    if (VAO == 0)
+    {
+        glGenVertexArrays(1, &VAO);
+    }
+    GLfloat PM[16] = { 1.000000, 0.000000, 0.000000, 0.000000,
+                      0.000000, 1.000000, 0.000000, 0.000000,
+                      0.000000, 0.000000, -1.001001, -1.000000,
+                      0.000000, 0.000000, -2.001000, 0.000000 };
+
+    GLfloat MV[16] = { 0.0250000, 0.000000, 0.000000, 0.000000,
+        0.000000, 0.0250000, 0.000000, 0.000000,
+        0.000000, 0.000000, 0.0250000, 0.000000,
+        0.000000, 0.000000, -0.010000, 1.000000 };
+
+    GLfloat MV2[16] = { 10.0, 0.000000, 0.000000, 0.000000,
+        0.000000, 10.0, 0.000000, 0.000000,
+        0.000000, 0.000000, 10.0, 0.000000,
+        0.000000, 0.000000, -0.010000, 1.000000 };
+
+    GLfloat v[16] = { 2.0f, -0.4f,  1.5f, 0.f,
+        -0.7f,  2.f  ,  1.4f, 0.f,
+        -1.4f, -1.5f,  1.4f, 0.f,
+        0.5f, -0.3f, -6.0f, 1.f }; // view matrix known to work well with the example
+
+    GLfloat p[16] = { 1.f, 0.f,  0.f,  0.f,
+        0.f, 1.f,  0.f,  0.f,
+        0.f, 0.f, -1.f, -1.f,
+        0.f, 0.f, -2.f,  0.f };       // projection matrix known to work well with the example
+                                      //    lrVolViz->render(p, v);
+    proj.Transpose();
+    view.Transpose();
+    {
+        static Matrix4f storedProj[2];
+        static Matrix4f storedview[2];
+
+        if (saveMatrices) {
+            storedProj[eye] = proj;
+            storedview[eye] = view;
+        }
+        if (useStaticMatrices) {
+            proj = storedProj[eye];
+            view = storedview[eye];
+        }
+    }
+    const float *pf = (FLOAT*)&proj;
+    const float *vf = (FLOAT*)&view;
+
+    //    svipViz->render((FLOAT*)&proj, (FLOAT*)&view);
+//    svipViz->render(PM, MV);
+    svipViz->render(pf, vf);
+    glActiveTexture(GL_TEXTURE0 + 4);
+    #ifdef MULTISAMPLE
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, svipViz->getColorTex());
+#else
+    glBindTexture(GL_TEXTURE_2D, svipViz->getColorTex());
+    #endif
+    glEnable(GL_ALPHA_TEST);
+    glAlphaFunc(GL_GREATER, 0.0);
+    glDisable(GL_DEPTH_TEST);
+    glClearColor(0.0, 1.0, 1.0, 1.0);
+    glDisable(GL_CULL_FACE);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glUseProgram(program);
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+}
+
 
 
 static ovrGraphicsLuid GetDefaultAdapterLuid()
@@ -77,6 +296,7 @@ static bool MainLoop(bool retryCreate)
     TextureBuffer * eyeRenderTexture[2] = { nullptr, nullptr };
     DepthBuffer   * eyeDepthBuffer[2] = { nullptr, nullptr };
     ovrMirrorTexture mirrorTexture = nullptr;
+    SVIPviz *svipViz = nullptr;
     GLuint          mirrorFBO = 0;
     Scene         * roomScene = nullptr; 
     long long frameIndex = 0;
@@ -99,7 +319,6 @@ static bool MainLoop(bool retryCreate)
     ovrSizei windowSize = { hmdDesc.Resolution.w / 2, hmdDesc.Resolution.h / 2 };
     if (!Platform.InitDevice(windowSize.w, windowSize.h, reinterpret_cast<LUID*>(&luid)))
         goto Done;
-
     // Make eye render buffers
     for (int eye = 0; eye < 2; ++eye)
     {
@@ -163,12 +382,49 @@ static bool MainLoop(bool retryCreate)
 
         if (sessionStatus.IsVisible)
         {
+
+            if (!svipViz) {
+                svipViz = new SVIPviz(debugCallback, nullptr);
+//                svipViz->initGL(1080, 1200); // fix aspect
+#ifdef MULTISAMPLE
+                svipViz->initGL(1332, 1586, true); // fix aspect
+#else
+                svipViz->initGL(1332, 1586, false); // fix aspect
+#endif
+                setupData(svipViz);
+            }
+
             // Keyboard inputs to adjust player orientation
             static float Yaw(3.141592f);
+            if (Platform.Key['M']) {
+                svipViz->setMeshShader();
+            }
+            if (Platform.Key['N']) {
+                svipViz->setSplatShader();
+            }
+            if (Platform.Key['0']) {
+                svipViz->restore_un_inpainted_pcloud();
+            }
+            if (Platform.Key['1']) {
+                svipViz->do_in_painting_to_replace_nans(1);
+            }
+            if (Platform.Key['2']) {
+                svipViz->do_in_painting_to_replace_nans(10);
+            }
+            if (Platform.Key['3']) {
+                svipViz->do_in_painting_to_replace_nans(100);
+            }
+
+            if (Platform.Key[VK_ADD]) {
+                svipViz->increaseZoom();
+            }
+            if (Platform.Key[VK_SUBTRACT]) {
+                svipViz->decreaseZoom();
+            }
             if (Platform.Key[VK_LEFT])  Yaw += 0.02f;
             if (Platform.Key[VK_RIGHT]) Yaw -= 0.02f;
 
-            // Keyboard inputs to adjust player position
+            // Keyboard inputs to adjust player position 
             static Vector3f Pos2(0.0f, 0.0f, -5.0f);
             if (Platform.Key['W'] || Platform.Key[VK_UP])     Pos2 += Matrix4f::RotationY(Yaw).Transform(Vector3f(0, 0, -0.05f));
             if (Platform.Key['S'] || Platform.Key[VK_DOWN])   Pos2 += Matrix4f::RotationY(Yaw).Transform(Vector3f(0, 0, +0.05f));
@@ -187,11 +443,15 @@ static bool MainLoop(bool retryCreate)
             // Get eye poses, feeding in correct IPD offset
             ovrPosef                  EyeRenderPose[2];
             ovrVector3f               HmdToEyeOffset[2] = { eyeRenderDesc[0].HmdToEyeOffset,
-                                                            eyeRenderDesc[1].HmdToEyeOffset };
+                                                            eyeRenderDesc[1].HmdToEyeOffset};
+//            HmdToEyeOffset[0].x = 100.f*HmdToEyeOffset[0].x; // hack to increase 3D effect
+//            HmdToEyeOffset[1].x = 100.f*HmdToEyeOffset[1].x;
 
             double sensorSampleTime;    // sensorSampleTime is fed into the layer later
             ovr_GetEyePoses(session, frameIndex, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
 
+            bool saveMatrices = false;
+            static bool useStaticMatrices = false;
             // Render Scene to Eye Buffers
             for (int eye = 0; eye < 2; ++eye)
             {
@@ -209,7 +469,11 @@ static bool MainLoop(bool retryCreate)
                 Matrix4f proj = ovrMatrix4f_Projection(hmdDesc.DefaultEyeFov[eye], 0.2f, 1000.0f, ovrProjection_None);
 
                 // Render world
-                roomScene->Render(view, proj);
+                //roomScene->Render(view, proj);
+                glPushAttrib(GL_ALL_ATTRIB_BITS);
+                glClear(GL_DEPTH_BUFFER_BIT);
+                renderSVIP(svipViz, view, proj, eye, saveMatrices, useStaticMatrices);
+                glPopAttrib();
 
                 // Avoids an error when calling SetAndClearRenderSurface during next iteration.
                 // Without this, during the next while loop iteration SetAndClearRenderSurface

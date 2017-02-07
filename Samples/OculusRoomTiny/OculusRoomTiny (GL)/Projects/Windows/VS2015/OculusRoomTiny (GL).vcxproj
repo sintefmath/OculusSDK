@@ -20,7 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\..\LibOVRKernel\Src\GL\CAPI_GLE.cpp" />
-    <ClCompile Include="..\..\..\main.cpp" />
+    <ClCompile Include="..\..\..\main.cpp">
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">E:\playgroundCode\dev\apps\libSVIP_GLUT\..\..\libs\libSVIP\include;C:\opt\freeglut-3.0.0\include;C:\opt\glew-1.10.0\include;E:\playgroundCode\dev\libs\ApplicationWrapper_GLUT\..\..\thirdparty\glm;E:\playgroundCode\dev\apps\libSVIP_GLUT\..\..\libs\SceneGraph\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\..\..\LibOVRKernel\Src\GL\CAPI_GLE.h" />
@@ -158,7 +160,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AdditionalOptions>/d2Zi+ %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(OVRSDKROOT)LibOVR/Include/;$(OVRSDKROOT)LibOVRKernel/Src/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(OVRSDKROOT)LibOVR/Include/;$(OVRSDKROOT)LibOVRKernel/Src/;E:\playgroundCode\dev\libs\libSVIP\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -166,7 +168,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <AdditionalDependencies>$(OVRSDKROOT)LibOVR/Lib/Windows/$(Platform)/$(Configuration)/VS2015/LibOVR.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>E:\playgroundCode\dev\libs\ApplicationWrapper_GLUT\..\..\thirdparty\glm;E:\playgroundCode\dev\apps\libSVIP_GLUT\..\..\libs\SceneGraph\include;E:\playgroundCode\dev\apps\libSVIP_GLUT\..\..\libs\libSVIP\include;C:\opt\freeglut-3.0.0\include;C:\opt\glew-1.10.0\include;E:\playgroundCode\dev\libs\libSVIP\include;E:\playgroundCode\dev\libs\libSVIP\..\..\libs\ReadWriteRasterImages\include;E:\playgroundCode\dev\libs\libSVIP\..\..\libs\VirtualFileSystem\include;E:\playgroundCode\dev\libs\libSVIP\..\..\libs\OpenGLUtils\include;$(OVRSDKROOT)LibOVR/Lib/Windows/$(Platform)/$(Configuration)/VS2015/LibOVR.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableDPIAwareness>PerMonitorHighDPIAware</EnableDPIAwareness>
@@ -226,16 +228,16 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <AdditionalIncludeDirectories>$(OVRSDKROOT)LibOVR/Include/;$(OVRSDKROOT)LibOVRKernel/Src/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(OVRSDKROOT)LibOVR/Include/;$(OVRSDKROOT)LibOVRKernel/Src/;E:\playgroundCode\dev\libs\SVIPexport\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Manifest>
       <EnableDPIAwareness>PerMonitorHighDPIAware</EnableDPIAwareness>
     </Manifest>
     <Link>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
-      <AdditionalDependencies>$(OVRSDKROOT)LibOVR/Lib/Windows/$(Platform)/$(Configuration)/VS2015/LibOVR.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>E:\playgroundCode\dev\libs\SVIPexport\build32\Release\SVIPVizExport.lib;glu32.lib;opengl32.lib;$(OVRSDKROOT)LibOVR/Lib/Windows/$(Platform)/$(Configuration)/VS2015/LibOVR.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
